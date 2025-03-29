@@ -1,25 +1,27 @@
 import { motion } from 'framer-motion';
 import { Brain } from 'lucide-react';
+import { colors } from '../constants/theme';
 
 export const Logo = () => (
   <motion.div
-    className="flex items-center gap-2 px-4 py-2"
-    whileHover={{ scale: 1.05 }}
+    className="flex items-center justify-center gap-3 py-5 border-b w-full"
+    style={{ borderColor: colors.primary.border }}
   >
     <motion.div
       animate={{
-        rotate: [0, 10, -10, 0],
+        scale: [1, 1.05, 1],
       }}
       transition={{
-        duration: 2,
+        duration: 3,
         repeat: Infinity,
         ease: "easeInOut"
       }}
+      className="flex items-center gap-3"
     >
-      <Brain size={32} className="text-accent-primary" />
+      <Brain size={28} className="text-white" />
+      <span className="text-2xl font-bold tracking-tight text-white">
+        AI Chat
+      </span>
     </motion.div>
-    <span className="text-xl font-bold bg-gradient-to-r from-accent-primary to-accent-secondary bg-clip-text text-transparent">
-      ChamtGmpt
-    </span>
   </motion.div>
 );

@@ -1,30 +1,32 @@
+export type FileType = 'image' | 'audio' | 'video' | 'document' | 'other';
+
 export interface MessageContent {
   text?: string;
+  fileUrl?: string;
   imageUrl?: string;
   audioUrl?: string;
-  fileUrl?: string;
   fileName?: string;
   type?: string;
   size?: number;
   context?: string;
-  error?: string;
+  base64?: string;
+  textContent?: string | null;
 }
-
-export type FileType = 'image' | 'audio' | 'video' | 'document' | 'other';
 
 export interface Message {
   content: MessageContent;
   role: 'user' | 'assistant';
-  type: FileType | 'text';
+  type: 'text' | FileType;
 }
 
-export interface ChatMessage extends Omit<Message, 'role'> {
+export interface ChatMessage {
+  content: MessageContent;
   isUser: boolean;
   timestamp: number;
-  error?: string;
+  type: 'text' | FileType;
 }
 
 export interface ApiResponse {
   response: string;
-  url?: string;
+  // Add other API response fields if needed
 } 

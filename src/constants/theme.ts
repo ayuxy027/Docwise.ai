@@ -1,23 +1,30 @@
 export const colors = {
   primary: {
-    bg: '#0F0E17', // Deep space black
-    text: '#FFFFFE',
-    accent: '#FF8906', // Vibrant orange
-    border: '#232323',
+    bg: '#000000',
+    text: '#FFFFFF',
+    border: '#222222',
   },
   secondary: {
-    bg: '#1A1A25',
-    text: '#A7A9BE',
-    accent: '#F25F4C', // Coral red
+    bg: '#0D0D0D',
+    text: '#F2F2F2',
+    accent: '#1A1A1A',
   },
   accent: {
-    primary: '#7F5AF0', // Electric purple
-    secondary: '#2CB67D', // Neon green
-    error: '#E53170', // Hot pink
-    success: '#72F2EB', // Cyan
+    primary: '#FFFFFF',
+    secondary: '#222222',
+    error: '#FF3333',
+    success: '#00CC66',
   },
   gradient: {
-    primary: 'linear-gradient(135deg, #7F5AF0 0%, #2CB67D 100%)',
-    funky: 'linear-gradient(45deg, #FF8906 0%, #F25F4C 50%, #E53170 100%)',
+    primary: 'linear-gradient(to right, #FFFFFF, #E0E0E0)',
+    secondary: 'linear-gradient(to right, #222222, #111111)',
   },
+  ui: {
+    messageBubbleUser: '#FFFFFF',
+    messageBubbleBot: '#111111',
+    messageTextUser: '#000000',
+    messageTextBot: '#FFFFFF',
+    inputBackground: '#111111',
+    buttonHover: '#F0F0F0',
+  }
 } as const;

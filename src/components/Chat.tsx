@@ -1,12 +1,9 @@
 // src/components/Chat.tsx
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { generateResponse, uploadFile, getFileType } from '../services/llmService';
+import { generateResponse, uploadFile, getFileType, extractTextFromDocument } from '../services/llmService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Send, 
-  // Paperclip, 
-  Mic, 
-  MicOff, 
   Image as ImageIcon, 
   FileAudio, 
   FileVideo,
@@ -14,12 +11,11 @@ import {
   File as FileIcon, 
   User, 
   Bot,
-  // X,
   Plus,
-  MessageSquare
+  MessageSquare,
+  Brain
 } from 'lucide-react';
 import type { ChatMessage } from '../types/chat';
-import { colors } from '../constants/theme';
 import { Logo } from './Logo';
 
 // New component for file upload preview and context input
@@ -41,87 +37,58 @@ const FileUploadModal: React.FC<FileUploadModalProps> = ({ file, onSend, onCance
     }
   }, [file]);
 
-  const getFilePreview = () => {
-    const type = getFileType(file);
-    const icon = {
-      image: <ImageIcon className="w-6 h-6" />,
-      audio: <FileAudio className="w-6 h-6" />,
-      video: <FileVideo className="w-6 h-6" />,
-      document: <FileText className="w-6 h-6" />,
-      other: <FileIcon className="w-6 h-6" />
-    }[type];
-
-    return (
-      <div className="relative rounded-lg overflow-hidden bg-gray-900/50 p-4">
-        {preview ? (
-          <img 
-            src={preview} 
-            alt="Preview" 
-            className="max-h-64 w-full object-contain rounded-lg"
-          />
-        ) : (
-          <div className="flex items-center gap-3 text-gray-400">
-            {icon}
-            <span className="truncate">{file.name}</span>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-      style={{ backgroundColor: `${colors.primary.bg}80` }}
+      className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50"
     >
       <motion.div
         initial={{ scale: 0.95 }}
         animate={{ scale: 1 }}
         exit={{ scale: 0.95 }}
-        className="rounded-2xl p-6 max-w-lg w-full shadow-xl"
-        style={{ backgroundColor: colors.secondary.bg }}
+        className="bg-[#111111] rounded-lg p-6 max-w-lg w-full border border-[#333333]"
       >
-        <h3 className="text-xl font-semibold mb-4" style={{ color: colors.primary.text }}>
+        <h3 className="text-xl font-semibold mb-4 text-white">
           Add Context
         </h3>
         
-        {getFilePreview()}
-        
-        <div className="mt-4">
-          <textarea
-            value={context}
-            onChange={(e) => setContext(e.target.value)}
-            placeholder="Add some context about this file... (optional)"
-            className="w-full rounded-xl p-4 min-h-[100px] transition-colors"
-            style={{
-              backgroundColor: colors.primary.bg,
-              color: colors.primary.text,
-              borderColor: colors.primary.border,
-            }}
-          />
+        <div className="rounded-lg overflow-hidden bg-[#0A0A0A] border border-[#222222] p-4">
+          {preview ? (
+            <img 
+              src={preview} 
+              alt="Preview" 
+              className="max-h-64 w-full object-contain rounded-lg"
+            />
+          ) : (
+            <div className="flex items-center gap-3 text-gray-400 py-2">
+              <FileIcon className="w-6 h-6" />
+              <span className="truncate">{file.name}</span>
+              <span className="text-xs text-gray-500 ml-auto">
+                {(file.size / 1024).toFixed(1)} KB
+              </span>
+            </div>
+          )}
         </div>
+        
+        <textarea
+          value={context}
+          onChange={(e) => setContext(e.target.value)}
+          placeholder="Add some context about this file... (optional)"
+          className="mt-4 w-full rounded-lg p-4 min-h-[100px] bg-[#0A0A0A] text-white border border-[#222222] focus:outline-none focus:border-white"
+        />
         
         <div className="mt-6 flex gap-3 justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-xl transition-colors"
-            style={{ 
-              backgroundColor: colors.secondary.accent,
-              color: colors.secondary.text
-            }}
+            className="px-4 py-2 rounded-lg bg-transparent text-white border border-[#333333] hover:border-white transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={() => onSend(context)}
-            className="px-4 py-2 rounded-xl transition-colors flex items-center gap-2"
-            style={{ 
-              backgroundColor: colors.accent.primary,
-              color: colors.primary.bg
-            }}
+            className="px-4 py-2 rounded-lg bg-white text-black hover:bg-opacity-90 transition-colors flex items-center gap-2"
           >
             <Send className="w-4 h-4" />
             Send
@@ -152,7 +119,10 @@ const FilePreview: React.FC<{ message: ChatMessage }> = ({ message }) => {
     const { content, type } = message;
     const url = content.fileUrl || content.imageUrl || content.audioUrl;
     
-    if (!url) return null;
+    if (!url) {
+      console.warn('Missing URL in file message', message);
+      return null;
+    }
 
     switch (type) {
       case 'image':
@@ -211,127 +181,77 @@ const FilePreview: React.FC<{ message: ChatMessage }> = ({ message }) => {
   );
 };
 
-// Add a funky message effect component
-const MessageEffect = () => (
-  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity">
-    <div className="absolute inset-0 bg-gradient-funky opacity-10 blur-xl" />
-  </div>
-);
-
-// Update MessageBubble with funky effects
+// Update MessageBubble with cleaner styling
 const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
   return (
     <motion.div
-      initial={{ 
-        opacity: 0, 
-        y: 20,
-        scale: 0.95
-      }}
-      animate={{ 
-        opacity: 1, 
-        y: 0,
-        scale: 1,
-        transition: {
-          type: "spring",
-          stiffness: 260,
-          damping: 20
-        }
-      }}
-      exit={{ 
-        opacity: 0, 
-        x: message.isUser ? 100 : -100,
-        transition: {
-          duration: 0.2
-        }
-      }}
-      className={`flex items-start gap-3 group ${message.isUser ? 'justify-end' : 'justify-start'}`}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      className={`flex items-start gap-3 ${message.isUser ? 'justify-end' : 'justify-start'} mb-6`}
     >
       {!message.isUser && (
-        <motion.div
-          whileHover={{ scale: 1.1, rotate: [0, -10, 10, 0] }}
-          className="w-8 h-8 rounded-full flex items-center justify-center bg-accent-primary"
-        >
-          <Bot size={18} className="text-primary-bg" />
-        </motion.div>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white">
+          <Bot size={16} className="text-black" />
+        </div>
       )}
       
       <div
-        className="relative max-w-xl p-4 rounded-2xl shadow-lg overflow-hidden group"
-        style={{ 
-          backgroundColor: message.isUser ? colors.accent.primary : colors.secondary.bg,
-          color: message.isUser ? colors.primary.bg : colors.primary.text,
-        }}
+        className={`relative max-w-[85%] p-4 rounded-lg shadow-sm ${
+          message.isUser 
+            ? 'bg-white text-black' 
+            : 'bg-[#111111] text-white border border-[#222222]'
+        }`}
       >
-        <MessageEffect />
         <FilePreview message={message} />
         {message.content.text && (
-          <p className="text-lg leading-relaxed mt-2 relative z-10">{message.content.text}</p>
+          <p className="text-base leading-relaxed whitespace-pre-wrap">{message.content.text}</p>
         )}
       </div>
 
       {message.isUser && (
-        <motion.div
-          whileHover={{ scale: 1.1, rotate: [0, 10, -10, 0] }}
-          className="w-8 h-8 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: colors.accent.secondary }}
-        >
-          <User size={18} className="text-primary-bg" />
-        </motion.div>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-[#333333]">
+          <User size={16} className="text-white" />
+        </div>
       )}
     </motion.div>
   );
 };
 
+// Update LoadingIndicator for cleaner look
 const LoadingIndicator = () => (
   <motion.div
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
-    className="flex justify-start items-center gap-3"
+    className="flex justify-start items-center gap-3 mb-6"
   >
-    <div className="w-8 h-8 rounded-full bg-accent-secondary flex items-center justify-center">
-      <Bot size={18} />
+    <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
+      <Bot size={16} className="text-black" />
     </div>
-    <div className="bg-gray-900 text-white p-4 rounded-2xl flex gap-2">
-      {[0, 1, 2].map((i) => (
+    <div className="bg-[#111111] text-white p-4 rounded-lg border border-[#222222] flex items-center">
+      <div className="flex space-x-1.5">
         <motion.span
-          key={i}
           className="w-2 h-2 bg-white rounded-full"
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [1, 0.5, 1],
-          }}
-          transition={{
-            duration: 1,
-            repeat: Infinity,
-            delay: i * 0.2,
-          }}
+          animate={{ scale: [1, 1.2, 1] }}
+          transition={{ duration: 1, repeat: Infinity, repeatType: "loop" }}
         />
-      ))}
+        <motion.span
+          className="w-2 h-2 bg-white rounded-full"
+          animate={{ scale: [1, 1.2, 1] }}
+          transition={{ duration: 1, repeat: Infinity, repeatType: "loop", delay: 0.2 }}
+        />
+        <motion.span
+          className="w-2 h-2 bg-white rounded-full"
+          animate={{ scale: [1, 1.2, 1] }}
+          transition={{ duration: 1, repeat: Infinity, repeatType: "loop", delay: 0.4 }}
+        />
+      </div>
+      <span className="ml-3 text-sm opacity-75">Processing...</span>
     </div>
   </motion.div>
 );
 
-const ActionButton: React.FC<{
-  icon: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  active?: boolean;
-  className?: string;
-  style?: React.CSSProperties;
-}> = ({ icon, onClick, disabled, active, className, style }) => (
-  <motion.button
-    whileHover={{ scale: 1.05 }}
-    whileTap={{ scale: 0.95 }}
-    onClick={onClick}
-    disabled={disabled}
-    className={`p-4 rounded-2xl disabled:opacity-50 transition-colors duration-200 ${
-      active ? 'bg-accent-error' : 'bg-secondary-accent'
-    } ${className}`}
-    style={style}
-  >
-    {icon}
-  </motion.button>
-);
+const MAX_FILE_SIZE_MB = 10; // 10MB max file size
 
 const Chat = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -339,8 +259,6 @@ const Chat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -402,6 +320,15 @@ const Chat = () => {
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      // Check file size
+      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        setError(`File size exceeds the ${MAX_FILE_SIZE_MB}MB limit. Please choose a smaller file.`);
+        if (event.target) {
+          event.target.value = '';
+        }
+        return;
+      }
+      
       setPendingFile(file);
     }
     // Reset input
@@ -416,18 +343,33 @@ const Chat = () => {
     setError(null);
 
     try {
-      const url = await uploadFile(pendingFile);
+      console.log('Processing file:', pendingFile.name, pendingFile.type);
+      
+      // Get file data including URL and base64 if applicable
+      const fileData = await uploadFile(pendingFile);
       const type = getFileType(pendingFile);
+      
+      console.log('File type determined as:', type);
+      console.log('Base64 data available:', !!fileData.base64);
+
+      // For documents, try to extract text content
+      let textContent = null;
+      if (type === 'document') {
+        textContent = await extractTextFromDocument(pendingFile);
+        console.log('Extracted text content:', textContent ? 'Yes (length: ' + textContent.length + ')' : 'No');
+      }
 
       // Create user message with file and context
       const userMessage: ChatMessage = {
         content: {
-          fileUrl: url,
+          fileUrl: fileData.url,
           fileName: pendingFile.name,
           type: pendingFile.type,
           size: pendingFile.size,
           context: context.trim() || undefined,
           text: context.trim(), // Add the context as text for the API
+          base64: fileData.base64, // Add base64 data if available
+          textContent: textContent, // Add extracted text content if available
         },
         isUser: true,
         timestamp: Date.now(),
@@ -440,7 +382,13 @@ const Chat = () => {
       const aiResponse = await generateResponse([{
         content: {
           text: context.trim(),
-          fileUrl: url, // Include the file URL
+          fileUrl: fileData.url,
+          base64: fileData.base64,
+          textContent: textContent,
+          fileName: pendingFile.name,
+          type: pendingFile.type,
+          size: pendingFile.size,
+          context: context.trim(),
         },
         role: 'user',
         type, // Pass the correct file type
@@ -455,6 +403,7 @@ const Chat = () => {
 
       setMessages(prev => [...prev, aiMessage]);
     } catch (err) {
+      console.error('Error processing file:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to process file';
       setError(errorMessage);
     } finally {
@@ -463,61 +412,40 @@ const Chat = () => {
     }
   };
 
-  const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      const chunks: BlobPart[] = [];
-
-      recorder.ondataavailable = (e) => chunks.push(e.data);
-      recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const file = new File([blob], 'recording.webm', { type: 'audio/webm' });
-        const url = await uploadFile(file);
-        
-        const userMessage: ChatMessage = {
-          content: { audioUrl: url },
-          isUser: true,
-          timestamp: Date.now(),
-          type: 'audio',
-        };
-
-        setMessages(prev => [...prev, userMessage]);
-        // Handle AI response...
-      };
-
-      recorder.start();
-      setMediaRecorder(recorder);
-      setIsRecording(true);
-    } catch (error) {
-      console.error('Error starting recording:', error);
-    }
-  };
-
-  const stopRecording = () => {
-    mediaRecorder?.stop();
-    setIsRecording(false);
-  };
-
   return (
-    <div className="h-screen flex flex-col" style={{ backgroundColor: colors.primary.bg }}>
-      <header className="border-b" style={{ borderColor: colors.primary.border }}>
-        <Logo />
-      </header>
+    <div className="h-screen flex flex-col bg-black">
+      <Logo />
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 py-6 space-y-4">
+        {messages.length === 0 && (
+          <div className="h-full flex flex-col items-center justify-center text-center px-4">
+            <Brain size={40} className="text-gray-700 mb-6" />
+            <h2 className="text-xl md:text-2xl font-semibold text-white mb-2">
+              How can I assist you today?
+            </h2>
+            <p className="text-gray-400 max-w-md">
+              Ask me anything or upload an image, document, or audio file for analysis.
+            </p>
+          </div>
+        )}
+
         {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-4 rounded-xl"
-            style={{ 
-              backgroundColor: `${colors.accent.error}20`,
-              borderColor: colors.accent.error,
-              color: colors.accent.error
-            }}
+            exit={{ opacity: 0 }}
+            className="p-4 rounded-lg bg-red-500/5 text-red-400 border border-red-500/10 mb-4 max-w-md mx-auto"
           >
-            {error}
+            <div className="flex items-start gap-2">
+              <span className="text-red-400 shrink-0">⚠️</span>
+              <span className="text-sm">{error}</span>
+            </div>
+            <button 
+              onClick={() => setError(null)} 
+              className="text-xs text-red-400 underline mt-2 opacity-75 hover:opacity-100"
+            >
+              Dismiss
+            </button>
           </motion.div>
         )}
 
@@ -528,10 +456,51 @@ const Chat = () => {
         </AnimatePresence>
 
         {isLoading && <LoadingIndicator />}
-
         <div ref={messagesEndRef} />
       </div>
 
+      <div className="border-t border-[#222222] p-4">
+        <div className="max-w-4xl mx-auto flex gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !isLoading && sendMessage()}
+              placeholder="Type a message..."
+              disabled={isLoading}
+              className="w-full rounded-lg px-4 py-3.5 bg-[#111111] text-white border border-[#333333] focus:outline-none focus:border-white transition-colors"
+            />
+          </div>
+          
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isLoading}
+            className="p-3 rounded-lg bg-[#111111] text-white border border-[#333333] hover:border-white transition-colors"
+            title="Upload a file"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+
+          <button
+            onClick={sendMessage}
+            disabled={isLoading || !inputMessage.trim()}
+            className="p-3 rounded-lg bg-white text-black hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:hover:bg-white"
+            title="Send message"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileSelect}
+        accept="*/*"
+        className="hidden"
+      />
+      
       <AnimatePresence>
         {pendingFile && (
           <FileUploadModal
@@ -541,68 +510,6 @@ const Chat = () => {
           />
         )}
       </AnimatePresence>
-
-      <motion.div
-        initial={{ y: 100 }}
-        animate={{ y: 0 }}
-        className="border-t p-6 backdrop-blur-lg"
-        style={{ 
-          borderColor: colors.primary.border,
-          background: `linear-gradient(to top, ${colors.primary.bg} 0%, transparent 100%)`,
-        }}
-      >
-        <div className="max-w-4xl mx-auto">
-          <div className="relative group">
-            <div className="absolute inset-0 bg-gradient-funky blur-xl opacity-20 group-hover:opacity-30 transition-opacity" />
-            <div className="relative flex gap-4">
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && !isLoading && sendMessage()}
-                placeholder="Send a funky message..."
-                disabled={isLoading}
-                className="w-full rounded-2xl px-6 py-4 text-lg transition-all duration-300"
-                style={{
-                  backgroundColor: `${colors.secondary.bg}CC`,
-                  color: colors.primary.text,
-                  borderColor: colors.primary.border,
-                }}
-              />
-              
-              <ActionButton
-                icon={<Plus className="w-6 h-6" />}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading}
-                className="bg-accent-primary text-primary-bg"
-              />
-
-              <ActionButton
-                icon={isRecording ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={isLoading}
-                active={isRecording}
-                className={isRecording ? 'bg-accent-error' : 'bg-accent-secondary'}
-              />
-
-              <ActionButton
-                icon={<Send className="w-6 h-6" />}
-                onClick={sendMessage}
-                disabled={isLoading || !inputMessage.trim()}
-                className="bg-gradient-funky"
-              />
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileSelect}
-        accept="*/*"
-        className="hidden"
-      />
     </div>
   );
 };
