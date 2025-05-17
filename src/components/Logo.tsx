@@ -1,11 +1,9 @@
 import { motion } from 'framer-motion';
-import { Brain } from 'lucide-react';
-import { colors } from '../constants/theme';
+import { Sparkles } from 'lucide-react';
 
 export const Logo = () => (
   <motion.div
-    className="flex items-center justify-center gap-3 py-5 border-b w-full"
-    style={{ borderColor: colors.primary.border }}
+    className="flex items-center justify-center gap-2"
   >
     <motion.div
       animate={{
@@ -16,11 +14,13 @@ export const Logo = () => (
         repeat: Infinity,
         ease: "easeInOut"
       }}
-      className="flex items-center gap-3"
+      className="flex items-center gap-2.5"
     >
-      <Brain size={28} className="text-white" />
-      <span className="text-2xl font-bold tracking-tight text-white">
-        AI Chat
+      <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600">
+        <Sparkles size={16} className="text-white" />
+      </div>
+      <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-violet-400 via-purple-400 to-indigo-400">
+        Gemma Chat
       </span>
     </motion.div>
   </motion.div>
