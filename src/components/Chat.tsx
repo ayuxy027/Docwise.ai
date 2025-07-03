@@ -1,350 +1,571 @@
-// src/components/Chat.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { generateResponse } from '../services/llmService';
-import { Send, User, Bot, MessageSquare, Settings, X, Sparkles } from 'lucide-react';
-import { motion } from 'framer-motion';
+import {
+    ArrowLeft,
+    Send,
+    FileText,
+    Upload,
+    X,
+    MessageSquare,
+    User,
+    Brain,
+    AlertCircle,
+    Paperclip,
+    Bug,
+    Zap,
+    Clock,
+    FileCheck
+} from 'lucide-react';
+import { cn, generateId, formatRelativeTime, parseMarkdown } from '../utils';
+import type { Message, Attachment } from '../types';
+import { processPDFFile, cleanupPDFResources, getPDFStats, extractKeyInfo } from '../services/pdfService';
+import { chatWithContext } from '../services/groqService';
 
-// Define types
-interface Message {
-  content: {
-    text: string;
-  };
-  isUser: boolean;
-  timestamp: number;
+interface ChatProps {
+    onBackToLanding: () => void;
 }
 
-interface SystemPromptModalProps {
-  systemPrompt: string;
-  onSave: (prompt: string) => void;
-  onClose: () => void;
-}
+const Chat: React.FC<ChatProps> = ({ onBackToLanding }) => {
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [input, setInput] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [attachment, setAttachment] = useState<Attachment | null>(null);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [processingStatus, setProcessingStatus] = useState<string>('');
+    const [error, setError] = useState<string | null>(null);
+    const [showDebug, setShowDebug] = useState(false);
 
-interface MessageBubbleProps {
-  message: Message;
-}
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-interface EmptyStateProps {
-  onExampleClick: (example: string) => void;
-}
+    // Auto-scroll to bottom
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
 
-// System prompt modal
-const SystemPromptModal: React.FC<SystemPromptModalProps> = ({ systemPrompt, onSave, onClose }) => {
-  const [prompt, setPrompt] = useState(systemPrompt);
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (attachment) {
+                cleanupPDFResources(attachment);
+            }
+        };
+    }, [attachment]);
 
-  return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-[#111111] rounded-xl p-6 max-w-lg w-full border border-[#333333] shadow-lg">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold text-white">System Prompt</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+    const handleFileUpload = async (file: File) => {
+        try {
+            setIsLoading(true);
+            setUploadProgress(0);
+            setError(null);
+            setProcessingStatus('Validating PDF file...');
 
-        <textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="You are a helpful assistant..."
-          className="w-full rounded-xl p-4 min-h-[150px] bg-[#0A0A0A] text-white border border-[#222222] focus:outline-none focus:border-white mb-4"
-        />
+            // Simulate upload progress
+            const progressInterval = setInterval(() => {
+                setUploadProgress(prev => {
+                    if (prev < 30) return prev + 5;
+                    if (prev < 60) return prev + 3;
+                    if (prev < 85) return prev + 2;
+                    return prev + 1;
+                });
+            }, 200);
 
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-transparent text-white border border-[#333333] hover:border-white"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onSave(prompt)}
-            className="px-4 py-2 rounded-xl bg-white text-black hover:bg-opacity-90"
-          >
-            Save Changes
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+            setProcessingStatus('Extracting text from PDF...');
 
-// Message bubble component
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
-  return (
-    <div className={`flex items-start gap-3 ${message.isUser ? 'justify-end' : 'justify-start'} mb-6`}>
-      {!message.isUser && (
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-purple-600 shrink-0">
-          <Bot size={16} className="text-white" />
-        </div>
-      )}
+            const newAttachment = await processPDFFile(file);
 
-      <div
-        className={`relative max-w-[85%] md:max-w-[75%] p-4 rounded-lg shadow-sm ${message.isUser
-          ? 'bg-blue-600 text-white'
-          : 'bg-[#111111] text-white border border-[#222222]'
-          }`}
-      >
-        <p className="text-base leading-relaxed whitespace-pre-wrap">{message.content.text}</p>
-      </div>
+            clearInterval(progressInterval);
+            setUploadProgress(100);
+            setProcessingStatus('PDF processed successfully!');
 
-      {message.isUser && (
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-[#333333] shrink-0">
-          <User size={16} className="text-white" />
-        </div>
-      )}
-    </div>
-  );
-};
+            // Clean up previous attachment
+            if (attachment) {
+                cleanupPDFResources(attachment);
+            }
 
-// Loading indicator
-const LoadingIndicator: React.FC = () => (
-  <div className="flex justify-start items-center gap-3 mb-6">
-    <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center">
-      <Bot size={16} className="text-white" />
-    </div>
-    <div className="bg-[#111111] text-white p-3 rounded-lg border border-[#222222] flex items-center">
-      <div className="flex space-x-1.5">
-        <motion.span
-          className="w-2 h-2 bg-purple-400 rounded-full"
-          animate={{ scale: [1, 1.3, 1] }}
-          transition={{ duration: 1, repeat: Infinity, repeatType: "loop" }}
-        />
-        <motion.span
-          className="w-2 h-2 bg-purple-400 rounded-full"
-          animate={{ scale: [1, 1.3, 1] }}
-          transition={{ duration: 1, repeat: Infinity, repeatType: "loop", delay: 0.2 }}
-        />
-        <motion.span
-          className="w-2 h-2 bg-purple-400 rounded-full"
-          animate={{ scale: [1, 1.3, 1] }}
-          transition={{ duration: 1, repeat: Infinity, repeatType: "loop", delay: 0.4 }}
-        />
-      </div>
-      <span className="ml-3 text-sm opacity-75">Thinking...</span>
-    </div>
-  </div>
-);
+            setAttachment(newAttachment);
 
-// Empty state
-const EmptyState: React.FC<EmptyStateProps> = ({ onExampleClick }) => (
-  <div className="h-full flex flex-col items-center justify-center text-center px-4">
-    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center mb-6">
-      <Sparkles size={32} className="text-white" />
-    </div>
-    <h2 className="text-xl md:text-2xl font-semibold text-white mb-3">
-      How can I assist you today?
-    </h2>
-    <p className="text-gray-400 max-w-md mb-8">
-      Ask me anything or upload an image, document, or audio file for analysis.
-    </p>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-lg w-full">
-      {[
-        "Explain quantum computing",
-        "Write a short poem about AI",
-        "Summarize the current AI landscape",
-        "Tell me a fun fact"
-      ].map((example) => (
-        <button
-          key={example}
-          onClick={() => onExampleClick(example)}
-          className="text-sm text-left px-4 py-3 bg-[#111111] rounded-lg border border-[#222222] hover:bg-[#1a1a1a] hover:border-purple-500 flex items-center gap-2"
-        >
-          <MessageSquare className="w-4 h-4 text-gray-400" />
-          <span>{example}</span>
-        </button>
-      ))}
-    </div>
-  </div>
-);
+            // Get PDF statistics for analysis message
+            const stats = getPDFStats(newAttachment);
+            const keyInfo = extractKeyInfo(newAttachment.extractedText || '');
 
-// Main Chat component
-const Chat: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState("You are a helpful assistant that provides accurate, concise information. If you don't know something, admit it rather than guessing.");
-  const [showSettings, setShowSettings] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+            // Auto-analyze the document with extracted content
+            const analysisMessage: Message = {
+                id: generateId(),
+                content: `# PDF Analysis Complete
 
-  useEffect(() => {
-    // Scroll to bottom when messages change
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
+**Document**: ${newAttachment.name}
+**Pages**: ${stats.pages}
+**Word Count**: ${stats.wordCount.toLocaleString()}
+**Character Count**: ${stats.characterCount.toLocaleString()}
+**Estimated Reading Time**: ${stats.readingTime} minutes
 
-  useEffect(() => {
-    // Focus the input field when the component mounts
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, []);
+${keyInfo.emails.length > 0 ? `**Email Addresses Found**: ${keyInfo.emails.slice(0, 3).join(', ')}${keyInfo.emails.length > 3 ? '...' : ''}\n` : ''}${keyInfo.phones.length > 0 ? `**Phone Numbers Found**: ${keyInfo.phones.slice(0, 3).join(', ')}${keyInfo.phones.length > 3 ? '...' : ''}\n` : ''}${keyInfo.dates.length > 0 ? `**Dates Found**: ${keyInfo.dates.slice(0, 3).join(', ')}${keyInfo.dates.length > 3 ? '...' : ''}\n` : ''}
+I have successfully extracted and analyzed the content from your PDF document. The text has been processed and I am now ready to answer questions, provide summaries, or discuss any specific aspects of the document.
 
-  // Handle example click
-  const handleExampleClick = (example: string) => {
-    setInputMessage(example);
-    sendMessage(example);
-  };
+## What would you like to know about this document?
 
-  // Send a message
-  const sendMessage = async (text: string | null = null) => {
-    const messageText = text || inputMessage;
-    if (!messageText.trim()) return;
+Some suggestions:
+- "Summarize the main points"
+- "What are the key topics covered?"
+- "Extract important dates or numbers"
+- "What conclusions does the document reach?"`,
+                role: 'assistant',
+                timestamp: new Date(),
+            };
 
-    // Clear input if sending from input field
-    if (!text) setInputMessage('');
+            setMessages(prev => [...prev, analysisMessage]);
 
-    // Add user message
-    const userMessage: Message = {
-      content: { text: messageText },
-      isUser: true,
-      timestamp: Date.now(),
+            // Add debug message in development
+            if (import.meta.env.DEV) {
+                console.log('📄 PDF Processing Debug Info:', {
+                    fileName: newAttachment.name,
+                    fileSize: newAttachment.size,
+                    extractedLength: newAttachment.extractedText?.length || 0,
+                    pages: stats.pages,
+                    wordCount: stats.wordCount,
+                    keyInfo,
+                    preview: newAttachment.extractedText?.slice(0, 500) + '...'
+                });
+            }
+
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to process PDF document';
+            setError(errorMessage);
+            console.error('PDF upload error:', error);
+        } finally {
+            setIsLoading(false);
+            setUploadProgress(0);
+            setProcessingStatus('');
+        }
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setIsLoading(true);
+    const handleSendMessage = async () => {
+        if ((!input.trim() && !attachment) || isLoading) return;
 
-    try {
-      // Generate response
-      const response = await generateResponse([{
-        content: { text: messageText },
-        role: 'user',
-        type: 'text',
-      }], systemPrompt);
+        const userMessage: Message = {
+            id: generateId(),
+            content: input.trim(),
+            role: 'user',
+            timestamp: new Date(),
+            attachments: attachment ? [attachment] : undefined,
+        };
 
-      // Add AI message
-      const aiMessage: Message = {
-        content: { text: response },
-        isUser: false,
-        timestamp: Date.now(),
-      };
+        setMessages(prev => [...prev, userMessage]);
+        setInput('');
+        setIsLoading(true);
+        setError(null);
 
-      setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error('Error generating response:', error);
-      // Add error message
-      const errorMessage: Message = {
-        content: { text: "Sorry, I encountered an error. Please try again." },
-        isUser: false,
-        timestamp: Date.now(),
-      };
+        try {
+            const conversationHistory = messages.map(msg => ({
+                role: msg.role,
+                content: msg.content,
+            }));
 
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-      // Focus input field after response
-      setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.focus();
+            let response: string;
+
+            if (attachment && attachment.extractedText) {
+                // Chat with document context
+                console.log('🤖 Sending message with document context:', {
+                    message: input.trim(),
+                    documentLength: attachment.extractedText.length,
+                    documentName: attachment.name
+                });
+
+                response = await chatWithContext(
+                    input.trim(),
+                    conversationHistory,
+                    attachment.extractedText
+                );
+            } else if (input.trim()) {
+                // Regular chat
+                response = await chatWithContext(input.trim(), conversationHistory);
+            } else {
+                response = "I can see you have uploaded a document. Please ask me a question about its content.";
+            }
+
+            const aiMessage: Message = {
+                id: generateId(),
+                content: response,
+                role: 'assistant',
+                timestamp: new Date(),
+            };
+
+            setMessages(prev => [...prev, aiMessage]);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Failed to process your request';
+            setError(errorMessage);
+            console.error('Chat error:', error);
+        } finally {
+            setIsLoading(false);
         }
-      }, 100);
-    }
-  };
+    };
 
-  // Clear conversation
-  const clearConversation = () => {
-    setMessages([]);
-    // Focus input field after clearing
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-  };
+    const removeAttachment = () => {
+        if (attachment) {
+            cleanupPDFResources(attachment);
+            setAttachment(null);
+        }
+    };
 
-  return (
-    <div className="flex flex-col h-screen w-full overflow-hidden">
-      {/* Header */}
-      <header className="bg-[#111] border-b border-[#222] p-3 flex items-center justify-between shadow-md">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
-            <Sparkles size={18} className="text-white" />
-          </div>
-          <h1 className="text-lg font-semibold">Gemma Chat</h1>
+    const handleKeyPress = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
+    };
+
+    return (
+        <div className="h-screen bg-vintage-white text-vintage-black flex flex-col">
+            {/* Header - Clean and Professional */}
+            <header className="relative z-10 border-b border-vintage-gray-200 bg-vintage-white/95 backdrop-blur-sm">
+                <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                            <button
+                                onClick={onBackToLanding}
+                                className="btn-ghost p-2 focus-vintage rounded-lg"
+                                title="Back to homepage"
+                            >
+                                <ArrowLeft className="w-5 h-5" />
+                            </button>
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-vintage-black rounded-lg flex items-center justify-center shadow-vintage">
+                                    <Brain className="w-6 h-6 text-vintage-white" />
+                                </div>
+                                <div>
+                                    <h1 className="text-xl font-display font-bold tracking-vintage">
+                                        DocWise AI
+                                    </h1>
+                                    <p className="text-xs text-vintage-gray-500">
+                                        AI-Powered PDF Analysis
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center space-x-3">
+                            {import.meta.env.DEV && (
+                                <button
+                                    onClick={() => setShowDebug(!showDebug)}
+                                    className="btn-ghost p-2 focus-vintage rounded-lg"
+                                    title="Toggle debug info"
+                                >
+                                    <Bug className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            {/* Document Status Bar */}
+            {attachment && (
+                <div className="relative z-10 border-b border-vintage-gray-200 bg-vintage-gray-50">
+                    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-vintage-black rounded-lg flex items-center justify-center">
+                                    <FileCheck className="w-4 h-4 text-vintage-white" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-vintage-black">
+                                        {attachment.name}
+                                    </p>
+                                    <p className="text-xs text-vintage-gray-500">
+                                        {attachment.extractedText?.length.toLocaleString()} characters • Ready for analysis
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={removeAttachment}
+                                className="btn-ghost p-2 focus-vintage rounded-lg"
+                                title="Remove document"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Debug Panel */}
+            {import.meta.env.DEV && showDebug && attachment && (
+                <div className="relative z-10 border-b border-vintage-gray-300 bg-vintage-gray-50 px-4 sm:px-6 py-4">
+                    <div className="max-w-4xl mx-auto">
+                        <h3 className="font-display font-bold mb-3 flex items-center text-sm">
+                            <Bug className="w-4 h-4 mr-2" />
+                            Debug Information
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
+                            <div>
+                                <span className="text-vintage-gray-500">File Size:</span>
+                                <div className="font-medium">{(attachment.size / 1024 / 1024).toFixed(2)} MB</div>
+                            </div>
+                            <div>
+                                <span className="text-vintage-gray-500">Text Length:</span>
+                                <div className="font-medium">{attachment.extractedText?.length.toLocaleString()} chars</div>
+                            </div>
+                            <div>
+                                <span className="text-vintage-gray-500">Words:</span>
+                                <div className="font-medium">{getPDFStats(attachment).wordCount.toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <span className="text-vintage-gray-500">Pages:</span>
+                                <div className="font-medium">{getPDFStats(attachment).pages}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Main Content Area */}
+            <div className="flex-1 overflow-hidden flex flex-col">
+                {/* Messages Container */}
+                <div className="flex-1 overflow-y-auto scrollbar-thin">
+                    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+                        {messages.length === 0 && !attachment && (
+                            <div className="h-full flex items-center justify-center">
+                                <div className="text-center max-w-lg mx-auto">
+                                    <div className="w-20 h-20 bg-vintage-black rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-vintage-lg">
+                                        <Brain className="w-10 h-10 text-vintage-white" />
+                                    </div>
+                                    <h2 className="text-2xl font-display font-bold mb-4 text-vintage-black">
+                                        Welcome to DocWise AI
+                                    </h2>
+                                    <p className="text-vintage-gray-600 mb-8 leading-relaxed">
+                                        Upload a PDF document to start analyzing and chatting with your content using advanced AI.
+                                    </p>
+
+                                    {/* Upload Area */}
+                                    <div className="border-2 border-dashed border-vintage-gray-300 rounded-xl p-8 hover:border-vintage-gray-400 transition-colors">
+                                        <div className="text-center">
+                                            <Upload className="w-12 h-12 text-vintage-gray-400 mx-auto mb-4" />
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="btn-primary text-base px-6 py-3 mb-3"
+                                            >
+                                                Choose PDF File
+                                            </button>
+                                            <p className="text-sm text-vintage-gray-500">
+                                                Or drag and drop your PDF here
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Quick Actions */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+                                        <div className="card-compact text-center">
+                                            <MessageSquare className="w-6 h-6 text-vintage-gray-600 mx-auto mb-2" />
+                                            <p className="text-sm font-medium text-vintage-black">Ask Questions</p>
+                                            <p className="text-xs text-vintage-gray-500">Natural language queries</p>
+                                        </div>
+                                        <div className="card-compact text-center">
+                                            <Zap className="w-6 h-6 text-vintage-gray-600 mx-auto mb-2" />
+                                            <p className="text-sm font-medium text-vintage-black">Get Summaries</p>
+                                            <p className="text-xs text-vintage-gray-500">Instant insights</p>
+                                        </div>
+                                        <div className="card-compact text-center">
+                                            <Clock className="w-6 h-6 text-vintage-gray-600 mx-auto mb-2" />
+                                            <p className="text-sm font-medium text-vintage-black">Save Time</p>
+                                            <p className="text-xs text-vintage-gray-500">Fast analysis</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {(messages.length > 0 || attachment) && (
+                            <div className="space-y-6">
+                                {messages.map((message, index) => (
+                                    <div
+                                        key={message.id}
+                                        className={cn(
+                                            "flex items-start space-x-4 animate-slide-up",
+                                            message.role === 'user' ? "justify-end" : "justify-start"
+                                        )}
+                                        style={{ animationDelay: `${index * 100}ms` }}
+                                    >
+                                        {message.role === 'assistant' && (
+                                            <div className="w-10 h-10 bg-vintage-black rounded-xl flex items-center justify-center flex-shrink-0 shadow-vintage">
+                                                <Brain className="w-5 h-5 text-vintage-white" />
+                                            </div>
+                                        )}
+
+                                        <div
+                                            className={cn(
+                                                "max-w-2xl p-5 shadow-vintage-lg transition-all duration-300 hover:shadow-vintage-xl rounded-2xl",
+                                                message.role === 'user'
+                                                    ? "bg-vintage-black text-vintage-white ml-auto rounded-br-lg"
+                                                    : "bg-vintage-white border border-vintage-gray-200 rounded-bl-lg"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "font-sans leading-relaxed prose prose-vintage max-w-none text-sm",
+                                                message.role === 'user'
+                                                    ? "text-vintage-white"
+                                                    : "text-vintage-black"
+                                            )}>
+                                                {message.role === 'assistant' ? (
+                                                    <div dangerouslySetInnerHTML={{ __html: parseMarkdown(message.content) }} />
+                                                ) : (
+                                                    message.content.split('\n').map((line, i) => (
+                                                        <p key={i} className={i > 0 ? "mt-3" : ""}>
+                                                            {line}
+                                                        </p>
+                                                    ))
+                                                )}
+                                            </div>
+
+                                            {message.attachments && message.attachments.length > 0 && (
+                                                <div className={cn(
+                                                    "mt-4 pt-4 border-t",
+                                                    message.role === 'user'
+                                                        ? "border-vintage-white/20"
+                                                        : "border-vintage-gray-200"
+                                                )}>
+                                                    {message.attachments.map((att) => (
+                                                        <div key={att.id} className="flex items-center space-x-2 text-xs font-mono">
+                                                            <FileText className="w-4 h-4" />
+                                                            <span>{att.name}</span>
+                                                            <span className="text-vintage-gray-500">
+                                                                ({att.extractedText?.length.toLocaleString()} chars)
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <div className={cn(
+                                                "text-xs mt-4 font-mono uppercase tracking-wide",
+                                                message.role === 'user'
+                                                    ? "text-vintage-white/60"
+                                                    : "text-vintage-gray-400"
+                                            )}>
+                                                {formatRelativeTime(message.timestamp)}
+                                            </div>
+                                        </div>
+
+                                        {message.role === 'user' && (
+                                            <div className="w-10 h-10 border border-vintage-gray-300 rounded-xl flex items-center justify-center flex-shrink-0 bg-vintage-white shadow-vintage">
+                                                <User className="w-5 h-5 text-vintage-black" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+
+                                {isLoading && (
+                                    <div className="flex items-start space-x-4 animate-slide-up">
+                                        <div className="w-10 h-10 bg-vintage-black rounded-xl flex items-center justify-center shadow-vintage">
+                                            <Brain className="w-5 h-5 text-vintage-white" />
+                                        </div>
+                                        <div className="bg-vintage-white border border-vintage-gray-200 rounded-2xl rounded-bl-lg p-5 shadow-vintage-lg">
+                                            <div className="flex items-center space-x-3">
+                                                <div className="spinner-vintage" />
+                                                <span className="font-mono text-vintage-gray-600 text-sm">
+                                                    {processingStatus || 'Thinking...'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div ref={messagesEndRef} />
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Error Display */}
+                {error && (
+                    <div className="border-t border-vintage-gray-200 bg-vintage-gray-50 px-4 sm:px-6 py-4">
+                        <div className="max-w-4xl mx-auto">
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
+                                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                                <span className="text-red-800 flex-1 text-sm">{error}</span>
+                                <button
+                                    onClick={() => setError(null)}
+                                    className="text-red-600 hover:text-red-800 p-1"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Upload Progress */}
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                    <div className="border-t border-vintage-gray-200 bg-vintage-gray-50 px-4 sm:px-6 py-4">
+                        <div className="max-w-4xl mx-auto">
+                            <div className="bg-vintage-white border border-vintage-gray-200 rounded-lg p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-sm font-medium text-vintage-black">
+                                        {processingStatus || 'Processing...'}
+                                    </span>
+                                    <span className="text-sm text-vintage-gray-500 font-mono">
+                                        {uploadProgress}%
+                                    </span>
+                                </div>
+                                <div className="bg-vintage-gray-200 h-2 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-vintage-black transition-all duration-300 rounded-full"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Input Area */}
+                <div className="border-t border-vintage-gray-200 bg-vintage-white">
+                    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+                        <div className="flex items-end space-x-3">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".pdf"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleFileUpload(file);
+                                }}
+                                className="hidden"
+                            />
+
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="btn-ghost p-3 focus-vintage rounded-lg flex-shrink-0"
+                                title="Upload PDF"
+                                disabled={isLoading}
+                            >
+                                <Paperclip className="w-5 h-5" />
+                            </button>
+
+                            <div className="flex-1 relative">
+                                <textarea
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                    onKeyPress={handleKeyPress}
+                                    placeholder={attachment ? "Ask about your document..." : "Upload a PDF or ask anything..."}
+                                    className="w-full px-4 py-3 text-sm border border-vintage-gray-300 rounded-xl bg-vintage-white text-vintage-black placeholder-vintage-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-vintage-gray-400 focus:border-vintage-gray-400 transition-all duration-200"
+                                    disabled={isLoading}
+                                    rows={1}
+                                    style={{ minHeight: '48px', maxHeight: '120px' }}
+                                />
+                            </div>
+
+                            <button
+                                onClick={handleSendMessage}
+                                disabled={(!input.trim() && !attachment) || isLoading}
+                                className="btn-primary p-3 disabled:opacity-50 disabled:cursor-not-allowed focus-vintage rounded-lg flex-shrink-0"
+                            >
+                                <Send className="w-5 h-5" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <button
-          onClick={() => setShowSettings(true)}
-          className="p-2 rounded-lg hover:bg-[#222] transition-colors"
-          title="System Prompt"
-        >
-          <Settings className="w-5 h-5" />
-        </button>
-      </header>
-
-      {/* Chat area */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* No messages state */}
-        {messages.length === 0 ? (
-          <EmptyState onExampleClick={handleExampleClick} />
-        ) : (
-          <>
-            {/* Message list */}
-            {messages.map((message) => (
-              <MessageBubble key={message.timestamp} message={message} />
-            ))}
-
-            {/* Loading indicator */}
-            {isLoading && <LoadingIndicator />}
-          </>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input area */}
-      <div className="border-t border-[#222] p-3">
-        <div className="flex items-center gap-2 max-w-4xl mx-auto">
-          {/* Clear button */}
-          {messages.length > 0 && (
-            <button
-              onClick={clearConversation}
-              className="p-2 rounded-lg hover:bg-[#222] transition-colors text-gray-400 hover:text-white"
-              title="Clear conversation"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 6h18"></path>
-                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-              </svg>
-            </button>
-          )}
-
-          {/* Input field */}
-          <div className="relative flex-1">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !isLoading && sendMessage()}
-              placeholder="Type a message..."
-              disabled={isLoading}
-              className="w-full px-4 py-3 bg-[#111] rounded-lg border border-[#333] focus:outline-none focus:border-purple-500"
-            />
-          </div>
-
-          {/* Send button */}
-          <button
-            onClick={() => sendMessage()}
-            disabled={isLoading || !inputMessage.trim()}
-            className="p-3 rounded-lg bg-purple-600 text-white disabled:opacity-50"
-          >
-            <Send className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
-      {/* Settings Modal */}
-      {showSettings && (
-        <SystemPromptModal
-          systemPrompt={systemPrompt}
-          onSave={(newPrompt) => {
-            setSystemPrompt(newPrompt);
-            setShowSettings(false);
-          }}
-          onClose={() => setShowSettings(false)}
-        />
-      )}
-    </div>
-  );
+    );
 };
 
-export default Chat;
+export default Chat; 
