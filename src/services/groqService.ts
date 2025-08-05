@@ -1,5 +1,5 @@
 import Groq from 'groq-sdk';
-import type { GroqMessage, GroqChatCompletion } from '@/types';
+import type { GroqMessage } from '@/types';
 
 // AI Prompt configuration for vintage, professional document analysis
 export const aiPrompt = `You are an elite AI assistant specializing in document analysis and intelligent conversation. You excel at understanding PDF documents, extracting insights, and providing clear, professional responses with a vintage scholarly approach.

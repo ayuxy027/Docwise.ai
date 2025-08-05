@@ -62,14 +62,15 @@ export const extractTextFromPDF = async (file: File): Promise<PDFProcessingResul
     // Extract metadata
     try {
       const pdfMetadata = await pdf.getMetadata();
+      const info = pdfMetadata.info as Record<string, any> | undefined;
       metadata = {
-        title: pdfMetadata.info?.Title || file.name.replace('.pdf', ''),
-        author: pdfMetadata.info?.Author || 'Unknown',
-        subject: pdfMetadata.info?.Subject || 'Document Analysis',
-        creator: pdfMetadata.info?.Creator || 'PDF Creator',
-        producer: pdfMetadata.info?.Producer || 'Unknown',
-        creationDate: pdfMetadata.info?.CreationDate || null,
-        keywords: pdfMetadata.info?.Keywords || '',
+        title: info && typeof info['Title'] === 'string' ? info['Title'] : file.name.replace('.pdf', ''),
+        author: info && typeof info['Author'] === 'string' ? info['Author'] : 'Unknown',
+        subject: info && typeof info['Subject'] === 'string' ? info['Subject'] : 'Document Analysis',
+        creator: info && typeof info['Creator'] === 'string' ? info['Creator'] : 'PDF Creator',
+        producer: info && typeof info['Producer'] === 'string' ? info['Producer'] : 'Unknown',
+        creationDate: (pdfMetadata.info && 'CreationDate' in pdfMetadata.info) ? (pdfMetadata.info as any).CreationDate : null,
+        keywords: (pdfMetadata.info && 'Keywords' in pdfMetadata.info) ? (pdfMetadata.info as any).Keywords : '',
       };
     } catch (metaError) {
       console.warn('Could not extract PDF metadata:', metaError);
@@ -164,7 +165,7 @@ export const processPDFFile = async (file: File): Promise<Attachment> => {
     size: file.size,
     url: URL.createObjectURL(file), // Local blob URL for display
     extractedText: extractionResult.text,
-    metadata: extractionResult.metadata,
+    metadata: extractionResult.metadata || {},
   };
   
   console.log(`✅ PDF attachment created successfully:`, {

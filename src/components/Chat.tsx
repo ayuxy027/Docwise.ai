@@ -146,7 +146,7 @@ Some suggestions:
             content: input.trim(),
             role: 'user',
             timestamp: new Date(),
-            attachments: attachment ? [attachment] : undefined,
+            attachments: attachment ? [attachment] : [],
         };
 
         setMessages(prev => [...prev, userMessage]);
@@ -214,25 +214,25 @@ Some suggestions:
     };
 
     return (
-        <div className="h-screen bg-vintage-white text-vintage-black flex flex-col">
+        <div className="flex flex-col h-screen bg-vintage-white text-vintage-black">
             {/* Header - Clean and Professional */}
-            <header className="relative z-10 border-b border-vintage-gray-200 bg-vintage-white/95 backdrop-blur-sm">
-                <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
-                    <div className="flex items-center justify-between">
+            <header className="relative z-10 border-b backdrop-blur-sm border-vintage-gray-200 bg-vintage-white/95">
+                <div className="px-4 py-4 mx-auto max-w-4xl sm:px-6">
+                    <div className="flex justify-between items-center">
                         <div className="flex items-center space-x-4">
                             <button
                                 onClick={onBackToLanding}
-                                className="btn-ghost p-2 focus-vintage rounded-lg"
+                                className="p-2 rounded-lg btn-ghost focus-vintage"
                                 title="Back to homepage"
                             >
                                 <ArrowLeft className="w-5 h-5" />
                             </button>
                             <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-vintage-black rounded-lg flex items-center justify-center shadow-vintage">
+                                <div className="flex justify-center items-center w-10 h-10 rounded-lg bg-vintage-black shadow-vintage">
                                     <Brain className="w-6 h-6 text-vintage-white" />
                                 </div>
                                 <div>
-                                    <h1 className="text-xl font-display font-bold tracking-vintage">
+                                    <h1 className="text-xl font-bold font-display tracking-vintage">
                                         DocWise AI
                                     </h1>
                                     <p className="text-xs text-vintage-gray-500">
@@ -246,7 +246,7 @@ Some suggestions:
                             {import.meta.env.DEV && (
                                 <button
                                     onClick={() => setShowDebug(!showDebug)}
-                                    className="btn-ghost p-2 focus-vintage rounded-lg"
+                                    className="p-2 rounded-lg btn-ghost focus-vintage"
                                     title="Toggle debug info"
                                 >
                                     <Bug className="w-4 h-4" />
@@ -260,10 +260,10 @@ Some suggestions:
             {/* Document Status Bar */}
             {attachment && (
                 <div className="relative z-10 border-b border-vintage-gray-200 bg-vintage-gray-50">
-                    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3">
-                        <div className="flex items-center justify-between">
+                    <div className="px-4 py-3 mx-auto max-w-4xl sm:px-6">
+                        <div className="flex justify-between items-center">
                             <div className="flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-vintage-black rounded-lg flex items-center justify-center">
+                                <div className="flex justify-center items-center w-8 h-8 rounded-lg bg-vintage-black">
                                     <FileCheck className="w-4 h-4 text-vintage-white" />
                                 </div>
                                 <div>
@@ -277,7 +277,7 @@ Some suggestions:
                             </div>
                             <button
                                 onClick={removeAttachment}
-                                className="btn-ghost p-2 focus-vintage rounded-lg"
+                                className="p-2 rounded-lg btn-ghost focus-vintage"
                                 title="Remove document"
                             >
                                 <X className="w-4 h-4" />
@@ -289,13 +289,13 @@ Some suggestions:
 
             {/* Debug Panel */}
             {import.meta.env.DEV && showDebug && attachment && (
-                <div className="relative z-10 border-b border-vintage-gray-300 bg-vintage-gray-50 px-4 sm:px-6 py-4">
-                    <div className="max-w-4xl mx-auto">
-                        <h3 className="font-display font-bold mb-3 flex items-center text-sm">
-                            <Bug className="w-4 h-4 mr-2" />
+                <div className="relative z-10 px-4 py-4 border-b border-vintage-gray-300 bg-vintage-gray-50 sm:px-6">
+                    <div className="mx-auto max-w-4xl">
+                        <h3 className="flex items-center mb-3 text-sm font-bold font-display">
+                            <Bug className="mr-2 w-4 h-4" />
                             Debug Information
                         </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
+                        <div className="grid grid-cols-2 gap-4 font-mono text-xs sm:grid-cols-4">
                             <div>
                                 <span className="text-vintage-gray-500">File Size:</span>
                                 <div className="font-medium">{(attachment.size / 1024 / 1024).toFixed(2)} MB</div>
@@ -318,30 +318,30 @@ Some suggestions:
             )}
 
             {/* Main Content Area */}
-            <div className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex overflow-hidden flex-col flex-1">
                 {/* Messages Container */}
-                <div className="flex-1 overflow-y-auto scrollbar-thin">
-                    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+                <div className="overflow-y-auto flex-1 scrollbar-thin">
+                    <div className="px-4 py-6 mx-auto max-w-4xl sm:px-6">
                         {messages.length === 0 && !attachment && (
-                            <div className="h-full flex items-center justify-center">
-                                <div className="text-center max-w-lg mx-auto">
-                                    <div className="w-20 h-20 bg-vintage-black rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-vintage-lg">
+                            <div className="flex justify-center items-center h-full">
+                                <div className="mx-auto max-w-lg text-center">
+                                    <div className="flex justify-center items-center mx-auto mb-8 w-20 h-20 rounded-2xl bg-vintage-black shadow-vintage-lg">
                                         <Brain className="w-10 h-10 text-vintage-white" />
                                     </div>
-                                    <h2 className="text-2xl font-display font-bold mb-4 text-vintage-black">
+                                    <h2 className="mb-4 text-2xl font-bold font-display text-vintage-black">
                                         Welcome to DocWise AI
                                     </h2>
-                                    <p className="text-vintage-gray-600 mb-8 leading-relaxed">
+                                    <p className="mb-8 leading-relaxed text-vintage-gray-600">
                                         Upload a PDF document to start analyzing and chatting with your content using advanced AI.
                                     </p>
 
                                     {/* Upload Area */}
-                                    <div className="border-2 border-dashed border-vintage-gray-300 rounded-xl p-8 hover:border-vintage-gray-400 transition-colors">
+                                    <div className="p-8 rounded-xl border-2 border-dashed transition-colors border-vintage-gray-300 hover:border-vintage-gray-400">
                                         <div className="text-center">
-                                            <Upload className="w-12 h-12 text-vintage-gray-400 mx-auto mb-4" />
+                                            <Upload className="mx-auto mb-4 w-12 h-12 text-vintage-gray-400" />
                                             <button
                                                 onClick={() => fileInputRef.current?.click()}
-                                                className="btn-primary text-base px-6 py-3 mb-3"
+                                                className="px-6 py-3 mb-3 text-base btn-primary"
                                             >
                                                 Choose PDF File
                                             </button>
@@ -352,19 +352,19 @@ Some suggestions:
                                     </div>
 
                                     {/* Quick Actions */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
-                                        <div className="card-compact text-center">
-                                            <MessageSquare className="w-6 h-6 text-vintage-gray-600 mx-auto mb-2" />
+                                    <div className="grid grid-cols-1 gap-4 mt-8 sm:grid-cols-3">
+                                        <div className="text-center card-compact">
+                                            <MessageSquare className="mx-auto mb-2 w-6 h-6 text-vintage-gray-600" />
                                             <p className="text-sm font-medium text-vintage-black">Ask Questions</p>
                                             <p className="text-xs text-vintage-gray-500">Natural language queries</p>
                                         </div>
-                                        <div className="card-compact text-center">
-                                            <Zap className="w-6 h-6 text-vintage-gray-600 mx-auto mb-2" />
+                                        <div className="text-center card-compact">
+                                            <Zap className="mx-auto mb-2 w-6 h-6 text-vintage-gray-600" />
                                             <p className="text-sm font-medium text-vintage-black">Get Summaries</p>
                                             <p className="text-xs text-vintage-gray-500">Instant insights</p>
                                         </div>
-                                        <div className="card-compact text-center">
-                                            <Clock className="w-6 h-6 text-vintage-gray-600 mx-auto mb-2" />
+                                        <div className="text-center card-compact">
+                                            <Clock className="mx-auto mb-2 w-6 h-6 text-vintage-gray-600" />
                                             <p className="text-sm font-medium text-vintage-black">Save Time</p>
                                             <p className="text-xs text-vintage-gray-500">Fast analysis</p>
                                         </div>
@@ -385,7 +385,7 @@ Some suggestions:
                                         style={{ animationDelay: `${index * 100}ms` }}
                                     >
                                         {message.role === 'assistant' && (
-                                            <div className="w-10 h-10 bg-vintage-black rounded-xl flex items-center justify-center flex-shrink-0 shadow-vintage">
+                                            <div className="flex flex-shrink-0 justify-center items-center w-10 h-10 rounded-xl bg-vintage-black shadow-vintage">
                                                 <Brain className="w-5 h-5 text-vintage-white" />
                                             </div>
                                         )}
@@ -423,7 +423,7 @@ Some suggestions:
                                                         : "border-vintage-gray-200"
                                                 )}>
                                                     {message.attachments.map((att) => (
-                                                        <div key={att.id} className="flex items-center space-x-2 text-xs font-mono">
+                                                        <div key={att.id} className="flex items-center space-x-2 font-mono text-xs">
                                                             <FileText className="w-4 h-4" />
                                                             <span>{att.name}</span>
                                                             <span className="text-vintage-gray-500">
@@ -445,7 +445,7 @@ Some suggestions:
                                         </div>
 
                                         {message.role === 'user' && (
-                                            <div className="w-10 h-10 border border-vintage-gray-300 rounded-xl flex items-center justify-center flex-shrink-0 bg-vintage-white shadow-vintage">
+                                            <div className="flex flex-shrink-0 justify-center items-center w-10 h-10 rounded-xl border border-vintage-gray-300 bg-vintage-white shadow-vintage">
                                                 <User className="w-5 h-5 text-vintage-black" />
                                             </div>
                                         )}
@@ -454,13 +454,13 @@ Some suggestions:
 
                                 {isLoading && (
                                     <div className="flex items-start space-x-4 animate-slide-up">
-                                        <div className="w-10 h-10 bg-vintage-black rounded-xl flex items-center justify-center shadow-vintage">
+                                        <div className="flex justify-center items-center w-10 h-10 rounded-xl bg-vintage-black shadow-vintage">
                                             <Brain className="w-5 h-5 text-vintage-white" />
                                         </div>
-                                        <div className="bg-vintage-white border border-vintage-gray-200 rounded-2xl rounded-bl-lg p-5 shadow-vintage-lg">
+                                        <div className="p-5 rounded-2xl rounded-bl-lg border bg-vintage-white border-vintage-gray-200 shadow-vintage-lg">
                                             <div className="flex items-center space-x-3">
                                                 <div className="spinner-vintage" />
-                                                <span className="font-mono text-vintage-gray-600 text-sm">
+                                                <span className="font-mono text-sm text-vintage-gray-600">
                                                     {processingStatus || 'Thinking...'}
                                                 </span>
                                             </div>
@@ -476,14 +476,14 @@ Some suggestions:
 
                 {/* Error Display */}
                 {error && (
-                    <div className="border-t border-vintage-gray-200 bg-vintage-gray-50 px-4 sm:px-6 py-4">
-                        <div className="max-w-4xl mx-auto">
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
-                                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                                <span className="text-red-800 flex-1 text-sm">{error}</span>
+                    <div className="px-4 py-4 border-t border-vintage-gray-200 bg-vintage-gray-50 sm:px-6">
+                        <div className="mx-auto max-w-4xl">
+                            <div className="flex items-center p-4 space-x-3 bg-red-50 rounded-lg border border-red-200">
+                                <AlertCircle className="flex-shrink-0 w-5 h-5 text-red-600" />
+                                <span className="flex-1 text-sm text-red-800">{error}</span>
                                 <button
                                     onClick={() => setError(null)}
-                                    className="text-red-600 hover:text-red-800 p-1"
+                                    className="p-1 text-red-600 hover:text-red-800"
                                 >
                                     <X className="w-4 h-4" />
                                 </button>
@@ -494,20 +494,20 @@ Some suggestions:
 
                 {/* Upload Progress */}
                 {uploadProgress > 0 && uploadProgress < 100 && (
-                    <div className="border-t border-vintage-gray-200 bg-vintage-gray-50 px-4 sm:px-6 py-4">
-                        <div className="max-w-4xl mx-auto">
-                            <div className="bg-vintage-white border border-vintage-gray-200 rounded-lg p-4">
-                                <div className="flex items-center justify-between mb-3">
+                    <div className="px-4 py-4 border-t border-vintage-gray-200 bg-vintage-gray-50 sm:px-6">
+                        <div className="mx-auto max-w-4xl">
+                            <div className="p-4 rounded-lg border bg-vintage-white border-vintage-gray-200">
+                                <div className="flex justify-between items-center mb-3">
                                     <span className="text-sm font-medium text-vintage-black">
                                         {processingStatus || 'Processing...'}
                                     </span>
-                                    <span className="text-sm text-vintage-gray-500 font-mono">
+                                    <span className="font-mono text-sm text-vintage-gray-500">
                                         {uploadProgress}%
                                     </span>
                                 </div>
-                                <div className="bg-vintage-gray-200 h-2 rounded-full overflow-hidden">
+                                <div className="overflow-hidden h-2 rounded-full bg-vintage-gray-200">
                                     <div
-                                        className="h-full bg-vintage-black transition-all duration-300 rounded-full"
+                                        className="h-full rounded-full transition-all duration-300 bg-vintage-black"
                                         style={{ width: `${uploadProgress}%` }}
                                     />
                                 </div>
@@ -518,7 +518,7 @@ Some suggestions:
 
                 {/* Input Area */}
                 <div className="border-t border-vintage-gray-200 bg-vintage-white">
-                    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+                    <div className="px-4 py-4 mx-auto max-w-4xl sm:px-6">
                         <div className="flex items-end space-x-3">
                             <input
                                 ref={fileInputRef}
@@ -533,20 +533,20 @@ Some suggestions:
 
                             <button
                                 onClick={() => fileInputRef.current?.click()}
-                                className="btn-ghost p-3 focus-vintage rounded-lg flex-shrink-0"
+                                className="flex-shrink-0 p-3 rounded-lg btn-ghost focus-vintage"
                                 title="Upload PDF"
                                 disabled={isLoading}
                             >
                                 <Paperclip className="w-5 h-5" />
                             </button>
 
-                            <div className="flex-1 relative">
+                            <div className="relative flex-1">
                                 <textarea
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     onKeyPress={handleKeyPress}
                                     placeholder={attachment ? "Ask about your document..." : "Upload a PDF or ask anything..."}
-                                    className="w-full px-4 py-3 text-sm border border-vintage-gray-300 rounded-xl bg-vintage-white text-vintage-black placeholder-vintage-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-vintage-gray-400 focus:border-vintage-gray-400 transition-all duration-200"
+                                    className="px-4 py-3 w-full text-sm rounded-xl border transition-all duration-200 resize-none border-vintage-gray-300 bg-vintage-white text-vintage-black placeholder-vintage-gray-500 focus:outline-none focus:ring-2 focus:ring-vintage-gray-400 focus:border-vintage-gray-400"
                                     disabled={isLoading}
                                     rows={1}
                                     style={{ minHeight: '48px', maxHeight: '120px' }}
@@ -556,7 +556,7 @@ Some suggestions:
                             <button
                                 onClick={handleSendMessage}
                                 disabled={(!input.trim() && !attachment) || isLoading}
-                                className="btn-primary p-3 disabled:opacity-50 disabled:cursor-not-allowed focus-vintage rounded-lg flex-shrink-0"
+                                className="flex-shrink-0 p-3 rounded-lg btn-primary disabled:opacity-50 disabled:cursor-not-allowed focus-vintage"
                             >
                                 <Send className="w-5 h-5" />
                             </button>
